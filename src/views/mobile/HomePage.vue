@@ -4,7 +4,7 @@
             <f7-nav-title :title="tt('global.app.title')"></f7-nav-title>
         </f7-navbar>
 
-        <f7-card class="home-summary-card no-margin-top" :class="{ 'skeleton-text': loading }">
+        <f7-card class="home-summary-card" :class="{ 'skeleton-text': loading }">
             <f7-card-header class="display-block" style="padding-top: 120px;">
                 <p class="no-margin">
                     <span class="card-header-content" v-if="loading">
@@ -364,7 +364,7 @@ init();
 
 <style>
 .home-summary-card {
-    background-color: var(--f7-color-yellow);
+    background-color: #4FC3F7;
 }
 
 .home-summary-card .home-summary-month {
@@ -388,7 +388,7 @@ init();
 }
 
 .dark .home-summary-card {
-    background-color: var(--f7-theme-color);
+    background-color: #1976D2;
 }
 
 .dark .home-summary-card a {
