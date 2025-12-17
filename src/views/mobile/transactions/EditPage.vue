@@ -1,7 +1,7 @@
 <template>
     <f7-page @page:afterin="onPageAfterIn" @page:beforeout="onPageBeforeOut">
         <f7-navbar>
-            <f7-nav-left :back-link="tt('Back')"></f7-nav-left>
+            <div class="left"><i class="icon icon-back" style="padding: 0 12px" @click="back()"></i></div>
             <f7-nav-title :title="tt(title)"></f7-nav-title>
             <f7-nav-right class="navbar-compact-icons" v-if="mode !== TransactionEditPageMode.View || transaction.type !== TransactionType.ModifyBalance">
                 <f7-link icon-f7="ellipsis" @click="showMoreActionSheet = true"></f7-link>
@@ -459,6 +459,7 @@
                 <f7-actions-button @click="showTransactionPictures = true">{{ tt('Add Picture') }}</f7-actions-button>
             </f7-actions-group>
             <f7-actions-group v-if="pageTypeAndMode?.type === TransactionEditPageType.Transaction && mode === TransactionEditPageMode.View && transaction.type !== TransactionType.ModifyBalance">
+                <f7-actions-button @click="edit()">{{ tt('Edit') }}</f7-actions-button>
                 <f7-actions-button @click="duplicate(false, false)">{{ tt('Duplicate') }}</f7-actions-button>
                 <f7-actions-button @click="duplicate(true, false)">{{ tt('Duplicate (With Time)') }}</f7-actions-button>
                 <f7-actions-button @click="duplicate(false, true)" v-if="transaction.geoLocation">{{ tt('Duplicate (With Geographic Location)') }}</f7-actions-button>
@@ -824,6 +825,22 @@ function getFontClassByAmount(amount: number): string {
         return 'ebk-normal-amount';
     } else {
         return 'ebk-large-amount';
+    }
+}
+
+function back(): void {
+    console.log(props.f7router.history)
+
+    if (props.f7router.history.includes('/transaction/list')) {
+        console.log("back");
+        props.f7router.back();
+    } else {
+        console.log("home");
+        props.f7router.clearPreviousHistory();
+        props.f7router.navigate('/', {
+            animate: true,
+            clearPreviousHistory: true
+        });
     }
 }
 
@@ -1244,6 +1261,10 @@ function viewOrRemovePicture(pictureInfo: TransactionPictureInfoBasicResponse): 
             submitting.value = false;
         });
     });
+}
+
+function edit(): void {
+    props.f7router.navigate(`/transaction/edit?id=${transaction.value.id}&type=${transaction.value.type}`);
 }
 
 function duplicate(withTime?: boolean, withGeoLocation?: boolean): void {
