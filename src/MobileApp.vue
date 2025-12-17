@@ -40,9 +40,9 @@ const exchangeRatesStore = useExchangeRatesStore();
 
 const f7params = ref<Framework7Parameters>({
     name: 'ezBookkeeping',
-    theme: 'ios',
+    theme: 'md',
     colors: {
-        primary: '#c67e48'
+        primary: '#2196f3'
     },
     routes: routes,
     darkMode: (() => {

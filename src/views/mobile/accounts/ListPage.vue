@@ -580,11 +580,11 @@ init();
 
 <style>
 .account-overview-card {
-    background-color: var(--f7-color-yellow);
+    background-color: #4FC3F7;
 }
 
 .dark .account-overview-card {
-    background-color: var(--f7-theme-color);
+    background-color: #1976D2;
 }
 
 .dark .account-overview-card a {
