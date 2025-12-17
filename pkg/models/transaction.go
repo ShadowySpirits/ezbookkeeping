@@ -170,7 +170,7 @@ type TransactionCreateRequest struct {
 	HideAmount           bool                           `json:"hideAmount"`
 	TagIds               []string                       `json:"tagIds"`
 	PictureIds           []string                       `json:"pictureIds"`
-	Comment              string                         `json:"comment" binding:"max=255"`
+	Comment              string                         `json:"comment"`
 	GeoLocation          *TransactionGeoLocationRequest `json:"geoLocation" binding:"omitempty"`
 	ClientSessionId      string                         `json:"clientSessionId"`
 }
@@ -188,7 +188,7 @@ type TransactionModifyRequest struct {
 	HideAmount           bool                           `json:"hideAmount"`
 	TagIds               []string                       `json:"tagIds"`
 	PictureIds           []string                       `json:"pictureIds"`
-	Comment              string                         `json:"comment" binding:"max=255"`
+	Comment              string                         `json:"comment"`
 	GeoLocation          *TransactionGeoLocationRequest `json:"geoLocation" binding:"omitempty"`
 }
 
