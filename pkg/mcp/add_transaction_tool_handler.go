@@ -35,6 +35,7 @@ type MCPAddTransactionRequest struct {
 type MCPAddTransactionResponse struct {
 	Success                   bool   `json:"success" jsonschema_description:"Indicates whether this operation is successful"`
 	DryRun                    bool   `json:"dry_run,omitempty" jsonschema_description:"Indicates whether this operation is a dry run (transaction not saved actually)"`
+	TransactionId             int64  `json:"transaction_id,omitempty" jsonschema_description:"ID of the newly created transaction"`
 	AccountBalance            string `json:"account_balance,omitempty" jsonschema_description:"Account balance (or outstanding balance for debt accounts) after the transaction"`
 	DestinationAccountBalance string `json:"destination_account_balance,omitempty" jsonschema_description:"Destination account balance (or outstanding balance for debt accounts) after the transaction (only for transfer transactions)"`
 }
@@ -304,8 +305,9 @@ func (h *mcpAddTransactionToolHandler) createNewMCPAddTransactionResponse(c *cor
 	}
 
 	response := MCPAddTransactionResponse{
-		Success: true,
-		DryRun:  dryRun,
+		Success:       true,
+		DryRun:        dryRun,
+		TransactionId: transaction.TransactionId,
 	}
 
 	if sourceAccountInfo != nil {
