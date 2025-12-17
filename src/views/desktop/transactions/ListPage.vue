@@ -751,7 +751,8 @@ interface TransactionListProps {
     initAccountIds?: string,
     initTagFilter?: string,
     initAmountFilter?: string,
-    initKeyword?: string
+    initKeyword?: string,
+    initTransactionId?: string
 }
 
 const props = defineProps<TransactionListProps>();
@@ -1211,6 +1212,23 @@ function reload(force: boolean, init: boolean): void {
 
         if (force) {
             snackbar.value?.showMessage('Data has been updated');
+        }
+
+        console.log(props)
+        if (init && props.initTransactionId) {
+            const transaction = data?.items?.find(item => item.id === props.initTransactionId);
+
+            if (transaction) {
+                show(transaction);
+            } else {
+                transactionsStore
+                    .getTransaction({transactionId: props.initTransactionId, withPictures: true})
+                    .then(transaction => {
+                        if (transaction) {
+                            show(transaction);
+                        }
+                    });
+            }
         }
     }).catch(error => {
         loading.value = false;
