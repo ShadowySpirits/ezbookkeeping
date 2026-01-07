@@ -115,7 +115,15 @@ func handleTool[T MCPTextContent | MCPImageContent | MCPAudioContent | MCPResour
 	structuredResponse, result, err := handler.Handle(ctx, callToolReq, user, currentConfig, services)
 
 	if err != nil {
-		return nil, errs.Or(err, errs.ErrOperationFailed)
+		errorContent := MCPTextContent{
+			Type: "text",
+			Text: errs.Or(err, errs.ErrOperationFailed).Error(),
+		}
+		errorResp := MCPCallToolResponse[MCPTextContent]{
+			Content: []*MCPTextContent{&errorContent},
+			IsError: true,
+		}
+		return errorResp, nil
 	}
 
 	callToolResp := MCPCallToolResponse[T]{
