@@ -63,3 +63,20 @@ func (db *Database) RollbackToSavePoint(sess *xorm.Session, savePointName string
 
 	return nil
 }
+
+// DatabaseType returns the database type (mysql, postgres, sqlite3)
+func (db *Database) DatabaseType() string {
+	return db.databaseType
+}
+
+// Exec executes raw SQL statement
+func (db *Database) Exec(c core.Context, sql string, args ...any) error {
+	sess := db.NewSession(c)
+	sqlAndArgs := make([]interface{}, 0, len(args)+1)
+	sqlAndArgs = append(sqlAndArgs, sql)
+	for _, arg := range args {
+		sqlAndArgs = append(sqlAndArgs, arg)
+	}
+	_, err := sess.Exec(sqlAndArgs...)
+	return err
+}

@@ -52,6 +52,19 @@ func (s *DataStore) SyncStructs(beans ...any) error {
 	return err
 }
 
+// ExecRaw executes raw SQL on all database shards
+func (s *DataStore) ExecRaw(c core.Context, sql string, args ...any) error {
+	for i := 0; i < len(s.databases); i++ {
+		err := s.databases[i].Exec(c, sql, args...)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // NewDataStore returns a new data storage by a series of database
 func NewDataStore(databases ...*Database) (*DataStore, error) {
 	if len(databases) < 1 {

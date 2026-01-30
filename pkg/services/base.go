@@ -53,6 +53,11 @@ func (s *ServiceUsingDB) UserDataDBCount() int {
 	return s.container.UserDataStore.Count()
 }
 
+// UserDataDBType returns the database type for user data store
+func (s *ServiceUsingDB) UserDataDBType() string {
+	return s.container.UserDataStore.Get(0).DatabaseType()
+}
+
 // ServiceUsingConfig represents a service that need to use config
 type ServiceUsingConfig struct {
 	container *settings.ConfigContainer

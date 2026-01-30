@@ -14,6 +14,7 @@ import (
 	"github.com/mayswind/ezbookkeeping/pkg/errs"
 	"github.com/mayswind/ezbookkeeping/pkg/log"
 	"github.com/mayswind/ezbookkeeping/pkg/models"
+	"github.com/mayswind/ezbookkeeping/pkg/settings"
 	"github.com/mayswind/ezbookkeeping/pkg/utils"
 	"github.com/mayswind/ezbookkeeping/pkg/uuid"
 )
@@ -24,6 +25,18 @@ const pageCountForLoadTransactionAmounts = 1000
 type TransactionService struct {
 	ServiceUsingDB
 	ServiceUsingUuid
+}
+
+// buildKeywordCondition builds the SQL condition for keyword search
+// For PostgreSQL, uses full-text search with zhparser
+// For other databases, uses LIKE query
+func (s *TransactionService) buildKeywordCondition(keyword string) (string, any) {
+	if s.UserDataDBType() == settings.PostgresDbType {
+		// PostgreSQL: use full-text search with zhparser
+		return " AND to_tsvector('zhcfg', comment) @@ plainto_tsquery('zhcfg', ?)", keyword
+	}
+	// SQLite3/MySQL: use LIKE query
+	return " AND comment LIKE ?", "%%" + keyword + "%%"
 }
 
 // Initialize a transaction service singleton instance
@@ -2000,8 +2013,9 @@ func (s *TransactionService) GetAccountsAndCategoriesTotalInflowAndOutflow(c cor
 		}
 
 		if keyword != "" {
-			finalCondition = finalCondition + " AND comment LIKE ?"
-			finalConditionParams = append(finalConditionParams, "%%"+keyword+"%%")
+			kwCondition, kwParam := s.buildKeywordCondition(keyword)
+			finalCondition = finalCondition + kwCondition
+			finalConditionParams = append(finalConditionParams, kwParam)
 		}
 
 		sess := s.UserDataDB(uid).NewSession(c).Select("type, category_id, account_id, related_account_id, transaction_time, timezone_utc_offset, amount").Where(finalCondition, finalConditionParams...)
@@ -2127,8 +2141,9 @@ func (s *TransactionService) GetAccountsAndCategoriesMonthlyInflowAndOutflow(c c
 		}
 
 		if keyword != "" {
-			finalCondition = finalCondition + " AND comment LIKE ?"
-			finalConditionParams = append(finalConditionParams, "%%"+keyword+"%%")
+			kwCondition, kwParam := s.buildKeywordCondition(keyword)
+			finalCondition = finalCondition + kwCondition
+			finalConditionParams = append(finalConditionParams, kwParam)
 		}
 
 		sess := s.UserDataDB(uid).NewSession(c).Select("type, category_id, account_id, related_account_id, transaction_time, timezone_utc_offset, amount").Where(finalCondition, finalConditionParams...)
@@ -2634,8 +2649,9 @@ func (s *TransactionService) buildTransactionQueryCondition(uid int64, maxTransa
 	}
 
 	if keyword != "" {
-		condition = condition + " AND comment LIKE ?"
-		conditionParams = append(conditionParams, "%%"+keyword+"%%")
+		kwCondition, kwParam := s.buildKeywordCondition(keyword)
+		condition = condition + kwCondition
+		conditionParams = append(conditionParams, kwParam)
 	}
 
 	return condition, conditionParams
