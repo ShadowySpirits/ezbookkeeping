@@ -216,6 +216,9 @@ export const useStatisticsStore = defineStore('statistics', () => {
         } else if (transactionStatisticsFilter.value.chartDataType === ChartDataType.ExpenseByTagGroup.type ||
             transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTagGroup.type) {
             return 'tagGroup';
+        } else if (transactionStatisticsFilter.value.chartDataType === ChartDataType.ExpenseByTag.type ||
+            transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            return 'tag';
         } else {
             return '';
         }
@@ -601,10 +604,6 @@ export const useStatisticsStore = defineStore('statistics', () => {
     });
 
     const transactionTagGroupStatisticsDataWithInfo = computed<TransactionInfoResponse[]>(() => {
-        if (categoricalAnalysisChartDataCategory.value !== 'tagGroup') {
-            return [];
-        }
-        
         return transactionListForTagGroupStatistics.value || [];
     });
 
@@ -626,6 +625,9 @@ export const useStatisticsStore = defineStore('statistics', () => {
         } else if (transactionStatisticsFilter.value.chartDataType === ChartDataType.ExpenseByTagGroup.type ||
             transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTagGroup.type) {
             combinedData = getTagGroupCategoricalAnalysisData(transactionTagGroupStatisticsDataWithInfo.value, transactionStatisticsFilter.value);
+        } else if (transactionStatisticsFilter.value.chartDataType === ChartDataType.ExpenseByTag.type ||
+            transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTag.type) {
+            combinedData = getTagCategoricalAnalysisData(transactionTagGroupStatisticsDataWithInfo.value, transactionStatisticsFilter.value);
         }
 
         const allStatisticsItems: TransactionCategoricalAnalysisDataItem[] = [];
@@ -1855,41 +1857,19 @@ export const useStatisticsStore = defineStore('statistics', () => {
     }
 
     function loadCategoricalAnalysis({ force }: { force: boolean }): Promise<TransactionStatisticResponse> {
-        return new Promise(async (resolve, reject) => {
-            // Check if we're loading tag group data
-            if (transactionStatisticsFilter.value.chartDataType === ChartDataType.ExpenseByTagGroup.type ||
-                transactionStatisticsFilter.value.chartDataType === ChartDataType.IncomeByTagGroup.type) {
-                // Load transaction data for tag group analysis
-                try {
-                    await loadTransactionListForTagGroupStatistics();
-                    
-                    if (transactionStatisticsStateInvalid.value) {
-                        updateTransactionStatisticsInvalidState(false);
-                    }
-                    
-                    // Return empty statistics object since we're using transaction-level data
-                    const emptyResult: TransactionStatisticResponse = {
-                        startTime: transactionStatisticsFilter.value.categoricalChartStartTime,
-                        endTime: transactionStatisticsFilter.value.categoricalChartEndTime,
-                        items: []
-                    };
-                    
-                    resolve(emptyResult);
-                } catch (error) {
-                    logger.error('failed to load tag group transaction data', error);
-                    reject({ message: 'Unable to retrieve transaction data' });
-                }
-                return;
-            }
-            
-            // Original logic for pre-aggregated statistics
-            services.getTransactionStatistics({
+        return new Promise((resolve, reject) => {
+            // Always load both: pre-aggregated statistics AND raw transactions for tag analysis
+            const statisticsPromise = services.getTransactionStatistics({
                 startTime: transactionStatisticsFilter.value.categoricalChartStartTime,
                 endTime: transactionStatisticsFilter.value.categoricalChartEndTime,
                 tagFilter: transactionStatisticsFilter.value.tagFilter,
                 keyword: transactionStatisticsFilter.value.keyword,
                 useTransactionTimezone: settingsStore.appSettings.statistics.defaultTimezoneType === TimezoneTypeForStatistics.TransactionTimezone.type
-            }).then(response => {
+            });
+
+            const tagTransactionsPromise = loadTransactionListForTagGroupStatistics();
+
+            Promise.all([statisticsPromise, tagTransactionsPromise]).then(([response]) => {
                 const data = response.data;
 
                 if (!data || !data.success || !data.result) {
@@ -2039,6 +2019,7 @@ export const useStatisticsStore = defineStore('statistics', () => {
             };
         }
 
+        const excludedGroupIds = getExcludedTagGroupIds();
         const allDataItems: Record<string, WritableTransactionCategoricalAnalysisDataItem> = {};
         let totalAmount = 0;
         let totalNonNegativeAmount = 0;
@@ -2080,30 +2061,35 @@ export const useStatisticsStore = defineStore('statistics', () => {
 
             // Full Attribution: each tag gets full transaction amount
             if (!item.tagIds || item.tagIds.length === 0) {
-                // Handle "No Tag" case
-                addTagGroupItem(
-                    allDataItems,
-                    'none',
-                    'No Tag',
-                    amountInDefaultCurrency,
-                    totalAmount,
-                    totalNonNegativeAmount
-                );
-                totalAmount = (allDataItems['none']?.totalAmount || 0);
-                if (amountInDefaultCurrency > 0) {
-                    totalNonNegativeAmount += amountInDefaultCurrency;
+                // Untagged transactions belong to "Default Group"
+                if (!excludedGroupIds.has('0')) {
+                    const group = transactionTagsStore.allTransactionTagGroupsMap['0'];
+
+                    addTagGroupItem(
+                        allDataItems,
+                        '0',
+                        group?.name || 'Default Group',
+                        amountInDefaultCurrency,
+                        totalAmount,
+                        totalNonNegativeAmount,
+                        group
+                    );
+                    totalAmount += amountInDefaultCurrency;
+                    if (amountInDefaultCurrency > 0) {
+                        totalNonNegativeAmount += amountInDefaultCurrency;
+                    }
                 }
             } else {
                 // For each tag on transaction, add full amount to that tag's group
                 const processedGroups = new Set<string>();
-                
+
                 for (const tagId of item.tagIds) {
                     const tag = transactionTagsStore.allTransactionTagsMap[tagId];
                     const groupId = tag?.groupId || '0';
-                    
-                    if (!processedGroups.has(groupId)) {
+
+                    if (!processedGroups.has(groupId) && !excludedGroupIds.has(groupId)) {
                         const group = transactionTagsStore.allTransactionTagGroupsMap[groupId];
-                        
+
                         addTagGroupItem(
                             allDataItems,
                             groupId,
@@ -2113,15 +2099,169 @@ export const useStatisticsStore = defineStore('statistics', () => {
                             totalNonNegativeAmount,
                             group
                         );
-                        
-                        totalAmount = Object.values(allDataItems).reduce((sum, item) => sum + item.totalAmount, 0);
+
+                        totalAmount += amountInDefaultCurrency;
                         if (amountInDefaultCurrency > 0) {
                             totalNonNegativeAmount += amountInDefaultCurrency;
                         }
-                        
+
                         processedGroups.add(groupId);
                     }
                 }
+            }
+        }
+
+        return {
+            totalAmount,
+            totalNonNegativeAmount,
+            items: allDataItems
+        };
+    }
+
+    function getExcludedTagGroupIds(): Set<string> {
+        const defaultTagFilter = settingsStore.appSettings.statistics.defaultTagFilter;
+        const excludedGroupIds = new Set<string>();
+
+        if (!defaultTagFilter || Object.keys(defaultTagFilter).length === 0) {
+            return excludedGroupIds;
+        }
+
+        for (const [groupId, tags] of Object.entries(transactionTagsStore.allTransactionTagsByGroupMap)) {
+            if (!tags || tags.length === 0) {
+                continue;
+            }
+
+            let allExcluded = true;
+
+            for (const tag of tags) {
+                if (!defaultTagFilter[tag.id]) {
+                    allExcluded = false;
+                    break;
+                }
+            }
+
+            if (allExcluded) {
+                excludedGroupIds.add(groupId);
+            }
+        }
+
+        return excludedGroupIds;
+    }
+
+    function getTagCategoricalAnalysisData(
+        items: TransactionInfoResponse[],
+        filter: TransactionStatisticsFilter
+    ): WritableTransactionCategoricalAnalysisData | null {
+        if (!items || items.length === 0) {
+            return {
+                totalAmount: 0,
+                totalNonNegativeAmount: 0,
+                items: {}
+            };
+        }
+
+        const excludedGroupIds = getExcludedTagGroupIds();
+        const allDataItems: Record<string, WritableTransactionCategoricalAnalysisDataItem> = {};
+        let totalAmount = 0;
+        let totalNonNegativeAmount = 0;
+
+        for (const item of items) {
+            const category = transactionCategoriesStore.allTransactionCategoriesMap[item.categoryId];
+
+            if (filter.chartDataType === ChartDataType.ExpenseByTag.type) {
+                if (category?.type !== CategoryType.Expense) {
+                    continue;
+                }
+            } else if (filter.chartDataType === ChartDataType.IncomeByTag.type) {
+                if (category?.type !== CategoryType.Income) {
+                    continue;
+                }
+            }
+
+            if (filter.filterAccountIds && filter.filterAccountIds[item.sourceAccountId]) {
+                continue;
+            }
+            if (filter.filterCategoryIds && filter.filterCategoryIds[item.categoryId]) {
+                continue;
+            }
+
+            if (!matchesTagFilter(item.tagIds, filter.tagFilter)) {
+                continue;
+            }
+
+            const account = accountsStore.allAccountsMap[item.sourceAccountId];
+            const amountInDefaultCurrency = convertToDefaultCurrency(item.sourceAmount, account?.currency);
+
+            if (!isNumber(amountInDefaultCurrency)) {
+                continue;
+            }
+
+            if (!item.tagIds || item.tagIds.length === 0) {
+                // Handle "No Tag" case
+                let data = allDataItems['none'];
+
+                if (data) {
+                    data.totalAmount += amountInDefaultCurrency;
+                } else {
+                    data = {
+                        name: 'No Tag',
+                        type: 'category',
+                        id: 'none',
+                        icon: '',
+                        color: '',
+                        hidden: false,
+                        displayOrders: [Number.MAX_SAFE_INTEGER],
+                        totalAmount: amountInDefaultCurrency
+                    };
+                }
+
+                totalAmount += amountInDefaultCurrency;
+
+                if (amountInDefaultCurrency > 0) {
+                    totalNonNegativeAmount += amountInDefaultCurrency;
+                }
+
+                allDataItems['none'] = data;
+                continue;
+            }
+
+            for (const tagId of item.tagIds) {
+                const tag = transactionTagsStore.allTransactionTagsMap[tagId];
+
+                if (!tag) {
+                    continue;
+                }
+
+                // Skip tags in excluded groups
+                const groupId = tag.groupId || '0';
+                if (excludedGroupIds.has(groupId)) {
+                    continue;
+                }
+
+                let data = allDataItems[tagId];
+
+                if (data) {
+                    data.totalAmount += amountInDefaultCurrency;
+                } else {
+                    data = {
+                        name: tag.name,
+                        type: 'category',
+                        id: tagId,
+                        icon: '',
+                        color: '',
+                        hidden: tag.hidden,
+                        displayOrders: [tag.displayOrder],
+                        totalAmount: amountInDefaultCurrency
+                    };
+                }
+
+                totalAmount += amountInDefaultCurrency;
+
+                if (amountInDefaultCurrency > 0) {
+                    totalNonNegativeAmount += amountInDefaultCurrency;
+                }
+
+                allDataItems[tagId] = data;
             }
         }
 

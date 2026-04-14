@@ -186,12 +186,13 @@ export const useExplorersStore = defineStore('explorers', () => {
             }));
         } else if (dimension === TransactionExplorerDataDimension.TagGroup) {
             if (!transaction.tags || transaction.tags.length === 0) {
+                const group = transactionTagsStore.allTransactionTagGroupsMap['0'];
                 return [{
-                    categoryName: 'No Tag Group',
-                    categoryNameNeedI18n: true,
-                    categoryId: 'none',
+                    categoryName: group?.name || 'Default Group',
+                    categoryNameNeedI18n: !group,
+                    categoryId: '0',
                     categoryIdType: TransactionExplorerDimensionType.Other,
-                    categoryDisplayOrders: [Number.MAX_SAFE_INTEGER]
+                    categoryDisplayOrders: [group?.displayOrder ?? 0]
                 }];
             }
 

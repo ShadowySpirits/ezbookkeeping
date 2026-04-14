@@ -408,6 +408,7 @@ import { useStatisticsTransactionPageBase } from '@/views/base/statistics/Statis
 
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import { useStatisticsStore } from '@/stores/statistics.ts';
 
 import type { TypeAndDisplayName } from '@/core/base.ts';
@@ -490,6 +491,7 @@ const {
 
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
+const transactionTagsStore = useTransactionTagsStore();
 const statisticsStore = useStatisticsStore();
 
 const loadingError = ref<unknown | null>(null);
@@ -532,10 +534,21 @@ function getTransactionItemLinkUrl(itemId: string, dateRange?: TimeRangeAndDateT
 function init(): void {
     statisticsStore.initTransactionStatisticsFilter(analysisType.value);
 
-    Promise.all([
+    const isTagBasedChart = query.value.chartDataType === ChartDataType.ExpenseByTagGroup.type ||
+        query.value.chartDataType === ChartDataType.IncomeByTagGroup.type ||
+        query.value.chartDataType === ChartDataType.ExpenseByTag.type ||
+        query.value.chartDataType === ChartDataType.IncomeByTag.type;
+
+    const preloadPromises: Promise<unknown>[] = [
         accountsStore.loadAllAccounts({ force: false }),
         transactionCategoriesStore.loadAllCategories({ force: false })
-    ]).then(() => {
+    ];
+
+    if (isTagBasedChart) {
+        preloadPromises.push(transactionTagsStore.loadAllTags({ force: false }));
+    }
+
+    Promise.all(preloadPromises).then(() => {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             return statisticsStore.loadCategoricalAnalysis({
                 force: false
@@ -606,6 +619,17 @@ function reload(done?: () => void): void {
         } else if (analysisType.value === StatisticsAnalysisType.AssetTrends) {
             dispatchPromise = statisticsStore.loadAssetTrends({
                 force: force
+            });
+        }
+    } else if (query.value.chartDataType === ChartDataType.ExpenseByTagGroup.type ||
+        query.value.chartDataType === ChartDataType.IncomeByTagGroup.type ||
+        query.value.chartDataType === ChartDataType.ExpenseByTag.type ||
+        query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
+            dispatchPromise = transactionTagsStore.loadAllTags({force: false}).then(() => {
+                return statisticsStore.loadCategoricalAnalysis({
+                    force: force
+                });
             });
         }
     }

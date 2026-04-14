@@ -306,6 +306,13 @@ const isTagDimension = computed<boolean>(() =>
 const tagGroupFilterOptions = computed(() => {
     const options: { id: string; name: string }[] = [{ id: '', name: tt('All Groups') }];
 
+    // Add default group if there are tags without a group
+    const tagsInDefaultGroup = transactionTagsStore.allTransactionTagsByGroupMap['0'];
+
+    if (tagsInDefaultGroup && tagsInDefaultGroup.length > 0) {
+        options.push({ id: '0', name: tt('Default Group') });
+    }
+
     for (const group of transactionTagsStore.allTransactionTagGroups) {
         options.push({ id: group.id, name: group.name });
     }

@@ -47,7 +47,7 @@
                                 v-model="querySortingType"
                             />
                         </div>
-                        <v-tabs show-arrows class="my-4" direction="vertical"
+                        <v-tabs class="my-4" direction="vertical"
                                 :disabled="loading" v-model="queryChartDataType">
                             <v-tab class="tab-text-truncate" :key="dataType.type" :value="dataType.type"
                                    v-for="dataType in ChartDataType.values(undefined, true)"
@@ -523,6 +523,7 @@ import { useStatisticsTransactionPageBase } from '@/views/base/statistics/Statis
 
 import { useAccountsStore } from '@/stores/account.ts';
 import { useTransactionCategoriesStore } from '@/stores/transactionCategory.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import { type TransactionStatisticsPartialFilter, useStatisticsStore } from '@/stores/statistics.ts';
 
 import type { TypeAndDisplayName } from '@/core/base.ts';
@@ -645,6 +646,7 @@ const {
 
 const accountsStore = useAccountsStore();
 const transactionCategoriesStore = useTransactionCategoriesStore();
+const transactionTagsStore = useTransactionTagsStore();
 const statisticsStore = useStatisticsStore();
 
 const snackbar = useTemplateRef<SnackBarType>('snackbar');
@@ -849,10 +851,13 @@ function init(initProps: TransactionStatisticsProps): void {
         return;
     }
 
-    Promise.all([
+    const preloadPromises: Promise<unknown>[] = [
         accountsStore.loadAllAccounts({force: false}),
-        transactionCategoriesStore.loadAllCategories({force: false})
-    ]).then(() => {
+        transactionCategoriesStore.loadAllCategories({force: false}),
+        transactionTagsStore.loadAllTags({force: false})
+    ];
+
+    Promise.all(preloadPromises).then(() => {
         if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
             return statisticsStore.loadCategoricalAnalysis({
                 force: false
@@ -923,6 +928,15 @@ function reload(force: boolean): Promise<unknown> | null {
             });
         } else if (analysisType.value === StatisticsAnalysisType.AssetTrends) {
             dispatchPromise = statisticsStore.loadAssetTrends({
+                force: force
+            });
+        }
+    } else if (query.value.chartDataType === ChartDataType.ExpenseByTagGroup.type ||
+        query.value.chartDataType === ChartDataType.IncomeByTagGroup.type ||
+        query.value.chartDataType === ChartDataType.ExpenseByTag.type ||
+        query.value.chartDataType === ChartDataType.IncomeByTag.type) {
+        if (analysisType.value === StatisticsAnalysisType.CategoricalAnalysis) {
+            dispatchPromise = statisticsStore.loadCategoricalAnalysis({
                 force: force
             });
         }
