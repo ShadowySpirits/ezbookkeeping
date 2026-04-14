@@ -19,18 +19,36 @@
                         <v-icon :icon="mdiDotsVertical" />
                         <v-menu activator="parent">
                             <v-list>
-                                <v-list-item :prepend-icon="mdiSelectAll"
-                                             :title="tt('Set All to Included')"
-                                             :disabled="!hasAnyVisibleTag"
-                                             @click="setAllTagsState(TransactionTagFilterState.Include)"></v-list-item>
-                                <v-list-item :prepend-icon="mdiSelectAll"
-                                             :title="tt('Set All to Default')"
-                                             :disabled="!hasAnyVisibleTag"
-                                             @click="setAllTagsState(TransactionTagFilterState.Default)"></v-list-item>
-                                <v-list-item :prepend-icon="mdiSelectAll"
-                                             :title="tt('Set All to Excluded')"
-                                             :disabled="!hasAnyVisibleTag"
-                                             @click="setAllTagsState(TransactionTagFilterState.Exclude)"></v-list-item>
+                                <!-- Checkbox mode menu (statisticsDefault) -->
+                                <template v-if="isCheckboxMode">
+                                    <v-list-item :prepend-icon="mdiSelectAll"
+                                                 :title="tt('Select All')"
+                                                 :disabled="!hasAnyVisibleTag"
+                                                 @click="selectAllTags"></v-list-item>
+                                    <v-list-item :prepend-icon="mdiSelect"
+                                                 :title="tt('Select None')"
+                                                 :disabled="!hasAnyVisibleTag"
+                                                 @click="selectNoneTags"></v-list-item>
+                                    <v-list-item :prepend-icon="mdiSelectInverse"
+                                                 :title="tt('Invert Selection')"
+                                                 :disabled="!hasAnyVisibleTag"
+                                                 @click="selectInvertTags"></v-list-item>
+                                </template>
+                                <!-- Toggle mode menu (statisticsCurrent, transactionListCurrent) -->
+                                <template v-else>
+                                    <v-list-item :prepend-icon="mdiSelectAll"
+                                                 :title="tt('Set All to Included')"
+                                                 :disabled="!hasAnyVisibleTag"
+                                                 @click="setAllTagsState(TransactionTagFilterState.Include)"></v-list-item>
+                                    <v-list-item :prepend-icon="mdiSelectAll"
+                                                 :title="tt('Set All to Default')"
+                                                 :disabled="!hasAnyVisibleTag"
+                                                 @click="setAllTagsState(TransactionTagFilterState.Default)"></v-list-item>
+                                    <v-list-item :prepend-icon="mdiSelectAll"
+                                                 :title="tt('Set All to Excluded')"
+                                                 :disabled="!hasAnyVisibleTag"
+                                                 @click="setAllTagsState(TransactionTagFilterState.Exclude)"></v-list-item>
+                                </template>
                                 <v-divider class="my-2"/>
                                 <v-list-item :prepend-icon="mdiEyeOutline"
                                              :title="tt('Show Hidden Transaction Tags')"
@@ -55,13 +73,14 @@
         </v-card-text>
 
         <v-card-text :class="{ 'flex-grow-1 overflow-y-auto': dialogMode }" v-else-if="!loading && hasAnyVisibleTag">
-            <v-expansion-panels class="tag-categories" multiple v-model="expandTagGroups">
+            <v-expansion-panels class="tag-groups" multiple v-model="expandTagGroups">
                 <template :key="tagGroup.id" v-for="tagGroup in allTagGroupsWithDefault">
                     <v-expansion-panel class="border" :value="tagGroup.id" v-if="allVisibleTags[tagGroup.id] && allVisibleTags[tagGroup.id]!.length > 0">
                         <v-expansion-panel-title class="expand-panel-title-with-bg py-0">
                             <span class="ms-3 text-truncate">{{ tagGroup.name }}</span>
                             <v-spacer/>
-                            <div class="d-flex me-3" v-if="groupTagFilterTypesMap[tagGroup.id] && groupTagFilterStateCountMap[tagGroup.id]">
+                            <!-- Group-level filter type buttons (toggle mode only) -->
+                            <div class="d-flex me-3" v-if="!isCheckboxMode && groupTagFilterTypesMap[tagGroup.id] && groupTagFilterStateCountMap[tagGroup.id]">
                                 <v-btn color="secondary" density="compact" variant="outlined"
                                        v-if="groupTagFilterStateCountMap[tagGroup.id]![TransactionTagFilterState.Include] && groupTagFilterStateCountMap[tagGroup.id]![TransactionTagFilterState.Include] > 1">
                                     {{ groupTagFilterTypesMap[tagGroup.id]!.includeType === TransactionTagFilterType.HasAll.type ? tt(TransactionTagFilterType.HasAll.name) : tt(TransactionTagFilterType.HasAny.name) }}
@@ -92,7 +111,25 @@
                             <v-list rounded density="comfortable" class="pa-0">
                                 <template :key="transactionTag.id"
                                           v-for="transactionTag in allVisibleTags[tagGroup.id]">
-                                    <v-list-item class="ps-2">
+                                    <!-- Checkbox mode (statisticsDefault) -->
+                                    <v-list-item v-if="isCheckboxMode">
+                                        <template #prepend>
+                                            <v-checkbox :model-value="isTagChecked(transactionTag)"
+                                                        @update:model-value="updateTagSelected(transactionTag, $event)">
+                                                <template #label>
+                                                    <v-badge class="right-bottom-icon" color="secondary"
+                                                             location="bottom right" offset-x="2" offset-y="2" :icon="mdiEyeOffOutline"
+                                                             v-if="transactionTag.hidden">
+                                                        <v-icon size="24" :icon="mdiPound"/>
+                                                    </v-badge>
+                                                    <v-icon size="24" :icon="mdiPound" v-else-if="!transactionTag.hidden"/>
+                                                    <span class="ms-3">{{ transactionTag.name }}</span>
+                                                </template>
+                                            </v-checkbox>
+                                        </template>
+                                    </v-list-item>
+                                    <!-- Toggle mode (statisticsCurrent, transactionListCurrent) -->
+                                    <v-list-item class="ps-2" v-else>
                                         <template #prepend>
                                             <v-badge class="right-bottom-icon" color="secondary"
                                                      location="bottom right" offset-x="2" offset-y="2" :icon="mdiEyeOffOutline"
@@ -135,7 +172,7 @@
 <script setup lang="ts">
 import SnackBar from '@/components/desktop/SnackBar.vue';
 
-import { ref, useTemplateRef } from 'vue';
+import { ref, computed, useTemplateRef } from 'vue';
 
 import { useI18n } from '@/locales/helpers.ts';
 import {
@@ -155,6 +192,8 @@ import {
     mdiMagnify,
     mdiCheck,
     mdiSelectAll,
+    mdiSelect,
+    mdiSelectInverse,
     mdiEyeOutline,
     mdiEyeOffOutline,
     mdiDotsVertical,
@@ -179,6 +218,7 @@ const {
     loading,
     showHidden,
     filterContent,
+    filterTagIds,
     tagFilterStateMap,
     groupTagFilterTypesMap,
     title,
@@ -199,6 +239,8 @@ const snackbar = useTemplateRef<SnackBarType>('snackbar');
 
 const expandTagGroups = ref<string[]>(allVisibleTagGroupIds.value);
 
+const isCheckboxMode = computed<boolean>(() => props.type === 'statisticsDefault');
+
 function init(): void {
     transactionTagsStore.loadAllTags({
         force: false
@@ -217,6 +259,58 @@ function init(): void {
         }
     });
 }
+
+// === Checkbox mode functions (statisticsDefault) ===
+
+function isTagChecked(tag: TransactionTag): boolean {
+    return !filterTagIds.value[tag.id];
+}
+
+function updateTagSelected(tag: TransactionTag, value: boolean | null): void {
+    filterTagIds.value[tag.id] = !value;
+
+    if (props.autoSave) {
+        save();
+    }
+}
+
+function selectAllTags(): void {
+    for (const tags of values(allVisibleTags.value)) {
+        for (const tag of tags) {
+            filterTagIds.value[tag.id] = false;
+        }
+    }
+
+    if (props.autoSave) {
+        save();
+    }
+}
+
+function selectNoneTags(): void {
+    for (const tags of values(allVisibleTags.value)) {
+        for (const tag of tags) {
+            filterTagIds.value[tag.id] = true;
+        }
+    }
+
+    if (props.autoSave) {
+        save();
+    }
+}
+
+function selectInvertTags(): void {
+    for (const tags of values(allVisibleTags.value)) {
+        for (const tag of tags) {
+            filterTagIds.value[tag.id] = !filterTagIds.value[tag.id];
+        }
+    }
+
+    if (props.autoSave) {
+        save();
+    }
+}
+
+// === Toggle mode functions (statisticsCurrent, transactionListCurrent) ===
 
 function updateTransactionTagState(transactionTag: TransactionTag, value: TransactionTagFilterState): void {
     tagFilterStateMap.value[transactionTag.id] = value;
@@ -266,6 +360,8 @@ function setAllTagsState(value: TransactionTagFilterState): void {
     }
 }
 
+// === Common ===
+
 function save(): void {
     const changed = saveFilterTagIds();
     emit('settings:change', changed);
@@ -279,18 +375,18 @@ init();
 </script>
 
 <style>
-.tag-categories .tag-filter-state-toggle {
+.tag-groups .tag-filter-state-toggle {
     overflow-x: auto;
     white-space: nowrap;
 }
 
-.tag-categories .v-expansion-panel-text__wrapper {
+.tag-groups .v-expansion-panel-text__wrapper {
     padding: 0 0 0 0;
     padding-inline-start: 20px;
 }
 
-.tag-categories .v-expansion-panel--active:not(:first-child),
-.tag-categories .v-expansion-panel--active + .v-expansion-panel {
+.tag-groups .v-expansion-panel--active:not(:first-child),
+.tag-groups .v-expansion-panel--active + .v-expansion-panel {
     margin-top: 1rem;
 }
 </style>

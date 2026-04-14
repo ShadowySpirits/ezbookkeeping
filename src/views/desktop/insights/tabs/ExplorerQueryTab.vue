@@ -424,6 +424,32 @@
                                                     />
                                                 </div>
 
+                                                <div class="d-flex w-100" v-else-if="conditionWithRelation.condition.field === TransactionExplorerConditionField.TransactionTagGroup.value">
+                                                    <v-text-field
+                                                        disabled
+                                                        persistent-placeholder
+                                                        density="compact"
+                                                        :placeholder="tt('None')"
+                                                        v-if="conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.IsEmpty.value || conditionWithRelation.condition.operator === TransactionExplorerConditionOperator.IsNotEmpty.value"
+                                                    />
+
+                                                    <v-autocomplete
+                                                        item-title="name"
+                                                        item-value="id"
+                                                        auto-select-first
+                                                        persistent-placeholder
+                                                        multiple
+                                                        chips
+                                                        closable-chips
+                                                        density="compact"
+                                                        :disabled="loading || disabled || !!editingQuery"
+                                                        :placeholder="tt('None')"
+                                                        :items="transactionTagsStore.allTransactionTagGroups"
+                                                        v-model="conditionWithRelation.condition.value"
+                                                        v-else-if="conditionWithRelation.condition.operator !== TransactionExplorerConditionOperator.IsEmpty.value && conditionWithRelation.condition.operator !== TransactionExplorerConditionOperator.IsNotEmpty.value"
+                                                    />
+                                                </div>
+
                                                 <v-text-field disabled density="compact"
                                                               :placeholder="tt('None')"
                                                               v-else-if="conditionWithRelation.condition.field === TransactionExplorerConditionField.Pictures.value"
@@ -882,7 +908,7 @@ function getExpression(query: TransactionExplorerQuery, queryIndex: number): str
     }
 
     try {
-        return query.toExpression(transactionCategoriesStore.allTransactionCategoriesMap, accountsStore.allAccountsMap, transactionTagsStore.allTransactionTagsMap);
+        return query.toExpression(transactionCategoriesStore.allTransactionCategoriesMap, accountsStore.allAccountsMap, transactionTagsStore.allTransactionTagsMap, transactionTagsStore.allTransactionTagGroupsMap);
     } catch (ex) {
         logger.error('failed to generate expression for explorer query#' + queryIndex, ex);
         snackbar.value?.showError(tt('Failed to generate expression'));

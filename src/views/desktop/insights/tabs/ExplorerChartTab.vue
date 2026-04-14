@@ -30,6 +30,18 @@
                         class="flex-0-0"
                         min-width="150"
                         item-title="name"
+                        item-value="id"
+                        density="compact"
+                        :disabled="loading || disabled"
+                        :label="tt('Tag Group')"
+                        :items="tagGroupFilterOptions"
+                        v-model="currentExplorer.tagGroupFilter"
+                        v-if="isTagDimension"
+                    />
+                    <v-select
+                        class="flex-0-0"
+                        min-width="150"
+                        item-title="name"
                         item-value="value"
                         density="compact"
                         :disabled="loading || disabled || !TransactionExplorerChartType.valueOf(currentExplorer.chartType)?.seriesDimensionRequired"
@@ -189,12 +201,13 @@
 <script setup lang="ts">
 import AxisChart, { type AxisChartDisplayType } from '@/components/desktop/AxisChart.vue';
 
-import { computed, useTemplateRef } from 'vue';
+import { computed, useTemplateRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { useI18n } from '@/locales/helpers.ts';
 
 import { useUserStore } from '@/stores/user.ts';
+import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import {
     type CategoriedInfo,
     type CategoriedTransactionExplorerData,
@@ -280,9 +293,32 @@ const {
 } = useI18n();
 
 const userStore = useUserStore();
+const transactionTagsStore = useTransactionTagsStore();
 const explorersStore = useExplorersStore();
 
 const axisChart = useTemplateRef<AxisChartType>('axisChart');
+
+const isTagDimension = computed<boolean>(() =>
+    currentExplorer.value.categoryDimension === TransactionExplorerDataDimensionType.Tag ||
+    currentExplorer.value.seriesDimension === TransactionExplorerDataDimensionType.Tag
+);
+
+const tagGroupFilterOptions = computed(() => {
+    const options: { id: string; name: string }[] = [{ id: '', name: tt('All Groups') }];
+
+    for (const group of transactionTagsStore.allTransactionTagGroups) {
+        options.push({ id: group.id, name: group.name });
+    }
+
+    return options;
+});
+
+// Reset tag group filter when dimension changes away from Tag
+watch(() => currentExplorer.value.categoryDimension, (newVal) => {
+    if (newVal !== TransactionExplorerDataDimensionType.Tag) {
+        currentExplorer.value.tagGroupFilter = '';
+    }
+});
 
 const defaultCurrency = computed<string>(() => userStore.currentUserDefaultCurrency);
 
@@ -294,18 +330,59 @@ const currentTransactionExplorerCategoryDimensionName = computed<string>(() => f
 
 const currentExplorer = computed<InsightsExplorer>(() => explorersStore.currentInsightsExplorer);
 
+// Filter explorer data by tag group when Tag dimension is active
+const filteredCategoriedTransactionExplorerData = computed<CategoriedTransactionExplorerData[]>(() => {
+    const data = explorersStore.categoriedTransactionExplorerData;
+
+    if (!data || !data.length) {
+        return [];
+    }
+
+    // No tag group filter active — show all data
+    if (!currentExplorer.value.tagGroupFilter) {
+        return data;
+    }
+
+    const selectedGroupId = currentExplorer.value.tagGroupFilter;
+
+    // When category dimension is Tag, filter categories (each category is a tag)
+    if (currentExplorer.value.categoryDimension === TransactionExplorerDataDimensionType.Tag) {
+        return data.filter(item => {
+            if (item.categoryId === 'none') {
+                return false;
+            }
+
+            const tag = transactionTagsStore.allTransactionTagsMap[item.categoryId];
+            return tag && tag.groupId === selectedGroupId;
+        });
+    }
+
+    // When series dimension is Tag, filter series within each category
+    return data.map(item => ({
+        ...item,
+        data: item.data.filter(seriesItem => {
+            if (seriesItem.seriesId === 'none') {
+                return false;
+            }
+
+            const tag = transactionTagsStore.allTransactionTagsMap[seriesItem.seriesId];
+            return tag && tag.groupId === selectedGroupId;
+        })
+    })).filter(item => item.data.length > 0);
+});
+
 const categoryDimensionTransactionExplorerData = computed<CategoryDimensionData[]>(() => {
     if (currentExplorer.value.chartType !== TransactionExplorerChartType.Pie.value && currentExplorer.value.chartType !== TransactionExplorerChartType.Radar.value) {
         return [];
     }
 
-    if (!explorersStore.categoriedTransactionExplorerData || !explorersStore.categoriedTransactionExplorerData.length) {
+    if (!filteredCategoriedTransactionExplorerData.value || !filteredCategoriedTransactionExplorerData.value.length) {
         return [];
     }
 
     const result: CategoryDimensionData[] = [];
 
-    for (const categoriedData of explorersStore.categoriedTransactionExplorerData) {
+    for (const categoriedData of filteredCategoriedTransactionExplorerData.value) {
         const data = categoriedData.data[0];
 
         if (!isDefined(data)) {
@@ -329,13 +406,13 @@ const categoryDimensionTransactionExplorerData = computed<CategoryDimensionData[
 });
 
 const categoriedDataSortedByDisplayOrder = computed<SortableCategoriedTransactionExplorerDataItem[]>(() => {
-    if (!explorersStore.categoriedTransactionExplorerData || !explorersStore.categoriedTransactionExplorerData.length) {
+    if (!filteredCategoriedTransactionExplorerData.value || !filteredCategoriedTransactionExplorerData.value.length) {
         return [];
     }
 
     const result: SortableCategoriedTransactionExplorerDataItem[] = [];
 
-    for (const categoriedData of explorersStore.categoriedTransactionExplorerData) {
+    for (const categoriedData of filteredCategoriedTransactionExplorerData.value) {
         result.push({
             name: getCategoriedDataDisplayName(categoriedData),
             displayOrders: categoriedData.categoryDisplayOrders,
@@ -368,14 +445,14 @@ const seriesDimensionTransactionExplorerData = computed<SeriesDimensionData[]>((
         return [];
     }
 
-    if (!explorersStore.categoriedTransactionExplorerData || !explorersStore.categoriedTransactionExplorerData.length) {
+    if (!filteredCategoriedTransactionExplorerData.value || !filteredCategoriedTransactionExplorerData.value.length) {
         return [];
     }
 
     const result: SeriesDimensionData[] = [];
     const seriesDimensionDataMap: Record<string, SeriesDimensionData> = {};
 
-    for (const categoriedData of explorersStore.categoriedTransactionExplorerData) {
+    for (const categoriedData of filteredCategoriedTransactionExplorerData.value) {
         for (const seriesData of categoriedData.data) {
             const displayName = getCategoriedDataDisplayName(seriesData);
             let seriesDimensionData: SeriesDimensionData | undefined = seriesDimensionDataMap[seriesData.seriesId];

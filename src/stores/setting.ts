@@ -362,6 +362,12 @@ export const useSettingsStore = defineStore('settings', () => {
         updateUserApplicationCloudSettingValue('statistics.defaultTransactionCategoryFilter', value);
     }
 
+    function setStatisticsDefaultTagFilter(value: Record<string, boolean>): void {
+        updateApplicationSettingsSubValue('statistics', 'defaultTagFilter', value);
+        appSettings.value.statistics.defaultTagFilter = value;
+        updateUserApplicationCloudSettingValue('statistics.defaultTagFilter', value);
+    }
+
     function setStatisticsSortingType(value: number): void {
         updateApplicationSettingsSubValue('statistics', 'defaultSortingType', value);
         appSettings.value.statistics.defaultSortingType = value;
@@ -568,6 +574,7 @@ export const useSettingsStore = defineStore('settings', () => {
         setStatisticsDefaultTimezoneType,
         setStatisticsDefaultAccountFilter,
         setStatisticsDefaultTransactionCategoryFilter,
+        setStatisticsDefaultTagFilter,
         setStatisticsSortingType,
         setStatisticsDefaultCategoricalChartType,
         setStatisticsDefaultCategoricalChartDateRange,

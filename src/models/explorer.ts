@@ -24,6 +24,7 @@ import {
 import { Account } from '@/models/account.ts';
 import { TransactionCategory } from '@/models/transaction_category.ts';
 import { TransactionTag } from '@/models/transaction_tag.ts';
+import { TransactionTagGroup } from '@/models/transaction_tag_group.ts';
 import { type TransactionInsightDataItem } from '@/models/transaction.ts';
 
 export class InsightsExplorerBasicInfo implements InsightsExplorerInfoResponse {
@@ -72,6 +73,7 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
     public chartType: TransactionExplorerChartTypeValue;
     public categoryDimension: TransactionExplorerDataDimensionType;
     public seriesDimension: TransactionExplorerDataDimensionType;
+    public tagGroupFilter: string;
     public valueMetric: TransactionExplorerValueMetricType;
     public chartSortingType: number;
 
@@ -87,11 +89,12 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
         TransactionExplorerChartType.Default.value,
         TransactionExplorerDataDimension.CategoryDimensionDefault.value,
         TransactionExplorerDataDimension.SeriesDimensionDefault.value,
+        '',
         TransactionExplorerValueMetric.Default.value,
         ChartSortingType.Default.type
     );
 
-    private constructor(id: string, name: string, displayOrder: number, hidden: boolean, queries: TransactionExplorerQuery[], timezoneUsedForDateRange: number, datatableQuerySource: string, countPerPage: number, chartType: TransactionExplorerChartTypeValue, categoryDimension: TransactionExplorerDataDimensionType, seriesDimension: TransactionExplorerDataDimensionType, valueMetric: TransactionExplorerValueMetricType, chartSortingType: number) {
+    private constructor(id: string, name: string, displayOrder: number, hidden: boolean, queries: TransactionExplorerQuery[], timezoneUsedForDateRange: number, datatableQuerySource: string, countPerPage: number, chartType: TransactionExplorerChartTypeValue, categoryDimension: TransactionExplorerDataDimensionType, seriesDimension: TransactionExplorerDataDimensionType, tagGroupFilter: string, valueMetric: TransactionExplorerValueMetricType, chartSortingType: number) {
         this.id = id;
         this.name = name;
         this.displayOrder = displayOrder;
@@ -103,6 +106,7 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
         this.chartType = chartType;
         this.categoryDimension = categoryDimension;
         this.seriesDimension = seriesDimension;
+        this.tagGroupFilter = tagGroupFilter;
         this.valueMetric = valueMetric;
         this.chartSortingType = chartSortingType;
     }
@@ -116,6 +120,7 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
             chartType: this.chartType,
             categoryDimension: this.categoryDimension,
             seriesDimension: this.seriesDimension,
+            tagGroupFilter: this.tagGroupFilter,
             valueMetric: this.valueMetric,
             chartSortingType: this.chartSortingType
         };
@@ -147,6 +152,7 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
         let chartType = InsightsExplorer.Default.chartType;
         let categoryDimension = InsightsExplorer.Default.categoryDimension;
         let seriesDimension = InsightsExplorer.Default.seriesDimension;
+        let tagGroupFilter = InsightsExplorer.Default.tagGroupFilter;
         let valueMetric = InsightsExplorer.Default.valueMetric;
         let chartSortingType = InsightsExplorer.Default.chartSortingType;
         let hasDatatableQuerySource = false;
@@ -174,6 +180,10 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
 
             if (typeof data['seriesDimension'] === 'string') {
                 seriesDimension = data['seriesDimension'] as TransactionExplorerDataDimensionType;
+            }
+
+            if (typeof data['tagGroupFilter'] === 'string') {
+                tagGroupFilter = data['tagGroupFilter'] as string;
             }
 
             if (typeof data['valueMetric'] === 'string') {
@@ -217,6 +227,7 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
             chartType,
             categoryDimension,
             seriesDimension,
+            tagGroupFilter,
             valueMetric,
             chartSortingType
         );
@@ -235,6 +246,7 @@ export class InsightsExplorer implements InsightsExplorerInfoResponse {
             InsightsExplorer.Default.chartType,
             InsightsExplorer.Default.categoryDimension,
             InsightsExplorer.Default.seriesDimension,
+            InsightsExplorer.Default.tagGroupFilter,
             InsightsExplorer.Default.valueMetric,
             InsightsExplorer.Default.chartSortingType
         );
@@ -340,6 +352,9 @@ export class TransactionExplorerQuery {
             case TransactionExplorerConditionField.TransactionTag:
                 condition = new TransactionExplorerTransactionTagCondition(TransactionExplorerConditionOperatorType.HasAny, []);
                 break;
+            case TransactionExplorerConditionField.TransactionTagGroup:
+                condition = new TransactionExplorerTransactionTagGroupCondition(TransactionExplorerConditionOperatorType.HasAny, []);
+                break;
             case TransactionExplorerConditionField.Pictures:
                 condition = new TransactionExplorerPicturesCondition(TransactionExplorerConditionOperatorType.IsNotEmpty, []);
                 break;
@@ -397,7 +412,7 @@ export class TransactionExplorerQuery {
         return stack[0] as boolean;
     }
 
-    public toExpression(allCategoriesMap: Record<string, TransactionCategory>, allAccountsMap: Record<string, Account>, allTagsMap: Record<string, TransactionTag>): string {
+    public toExpression(allCategoriesMap: Record<string, TransactionCategory>, allAccountsMap: Record<string, Account>, allTagsMap: Record<string, TransactionTag>, allTagGroupsMap?: Record<string, TransactionTagGroup>): string {
         if (!this.conditions || this.conditions.length < 1) {
             return '';
         }
@@ -431,7 +446,7 @@ export class TransactionExplorerQuery {
                 });
             } else {
                 stack.push({
-                    textualExpression: token.toExpression(allCategoriesMap, allAccountsMap, allTagsMap)
+                    textualExpression: token.toExpression(allCategoriesMap, allAccountsMap, allTagsMap, allTagGroupsMap)
                 });
             }
         }
@@ -701,6 +716,9 @@ export class TransactionExplorerConditionWithRelation {
             case TransactionExplorerConditionField.TransactionTag.value:
                 operatorTypes = TransactionExplorerTransactionTagCondition.supportedOperators;
                 break;
+            case TransactionExplorerConditionField.TransactionTagGroup.value:
+                operatorTypes = TransactionExplorerTransactionTagGroupCondition.supportedOperators;
+                break;
             case TransactionExplorerConditionField.Pictures.value:
                 operatorTypes = TransactionExplorerPicturesCondition.supportedOperators;
                 break;
@@ -832,6 +850,11 @@ export class TransactionExplorerConditionWithRelation {
                         condition = new TransactionExplorerTransactionTagCondition(conditionOperator as TransactionTagConditionOperator, conditionValue as string[]);
                     }
                     break;
+                case TransactionExplorerConditionField.TransactionTagGroup.value:
+                    if (TransactionExplorerTransactionTagGroupCondition.supportedOperators[conditionOperator] && Array.isArray(conditionValue)) {
+                        condition = new TransactionExplorerTransactionTagGroupCondition(conditionOperator as TransactionTagGroupConditionOperator, conditionValue as string[]);
+                    }
+                    break;
                 case TransactionExplorerConditionField.Pictures.value:
                     if (TransactionExplorerPicturesCondition.supportedOperators[conditionOperator] && Array.isArray(conditionValue)) {
                         condition = new TransactionExplorerPicturesCondition(conditionOperator as PicturesConditionOperator, conditionValue as string[]);
@@ -870,7 +893,7 @@ export interface TransactionExplorerCondition<T = TransactionExplorerConditionFi
 
     getValueForStore(): V;
     match(transaction: TransactionInsightDataItem, context: InsightsExplorerMatchContext): boolean;
-    toExpression(allCategoriesMap: Record<string, TransactionCategory>, allAccountsMap: Record<string, Account>, allTagsMap: Record<string, TransactionTag>): string;
+    toExpression(allCategoriesMap: Record<string, TransactionCategory>, allAccountsMap: Record<string, Account>, allTagsMap: Record<string, TransactionTag>, allTagGroupsMap?: Record<string, TransactionTagGroup>): string;
 }
 
 export class TransactionExplorerUndefinedCondition implements TransactionExplorerCondition {
@@ -1724,6 +1747,121 @@ export class TransactionExplorerTransactionTagCondition implements TransactionEx
             return `tags NOT HAS ANY (${textualTags})`;
         } else if (this.operator === TransactionExplorerConditionOperatorType.NotHasAll) {
             return `tags NOT HAS ALL (${textualTags})`;
+        } else {
+            return '';
+        }
+    }
+}
+
+type TransactionTagGroupConditionOperator = TransactionExplorerConditionOperatorType.IsEmpty |
+    TransactionExplorerConditionOperatorType.IsNotEmpty |
+    TransactionExplorerConditionOperatorType.HasAny |
+    TransactionExplorerConditionOperatorType.HasAll |
+    TransactionExplorerConditionOperatorType.NotHasAny |
+    TransactionExplorerConditionOperatorType.NotHasAll;
+
+export class TransactionExplorerTransactionTagGroupCondition implements TransactionExplorerCondition<TransactionExplorerConditionFieldType.TransactionTagGroup, string[]> {
+    public static readonly supportedOperators: PartialRecord<TransactionExplorerConditionOperatorType, true> = {
+        [TransactionExplorerConditionOperatorType.IsEmpty]: true,
+        [TransactionExplorerConditionOperatorType.IsNotEmpty]: true,
+        [TransactionExplorerConditionOperatorType.HasAny]: true,
+        [TransactionExplorerConditionOperatorType.HasAll]: true,
+        [TransactionExplorerConditionOperatorType.NotHasAny]: true,
+        [TransactionExplorerConditionOperatorType.NotHasAll]: true
+    };
+    public readonly field = TransactionExplorerConditionFieldType.TransactionTagGroup;
+    public readonly operator: TransactionTagGroupConditionOperator = TransactionExplorerConditionOperatorType.HasAny;
+    public value: string[];
+
+    constructor(operator: TransactionTagGroupConditionOperator, value: string[]) {
+        this.operator = operator;
+        this.value = value;
+    }
+
+    public getValueForStore(): string[] {
+        if (this.operator === TransactionExplorerConditionOperatorType.IsEmpty || this.operator === TransactionExplorerConditionOperatorType.IsNotEmpty) {
+            return [];
+        }
+
+        return this.value;
+    }
+
+    public match(transaction: TransactionInsightDataItem): boolean {
+        // Collect tag group IDs from the transaction's resolved tags
+        const transactionTagGroupIds: Record<string, boolean> = {};
+
+        if (transaction.tags) {
+            for (const tag of transaction.tags) {
+                if (tag.groupId) {
+                    transactionTagGroupIds[tag.groupId] = true;
+                }
+            }
+        }
+
+        if (this.operator === TransactionExplorerConditionOperatorType.IsEmpty || this.value.length < 1) {
+            return transaction.tagIds.length < 1;
+        } else if (this.operator === TransactionExplorerConditionOperatorType.IsNotEmpty) {
+            return transaction.tagIds.length > 0;
+        } else if (this.operator === TransactionExplorerConditionOperatorType.HasAny || this.operator === TransactionExplorerConditionOperatorType.NotHasAny) {
+            let hasAny = false;
+
+            for (const groupId of this.value) {
+                if (transactionTagGroupIds[groupId]) {
+                    hasAny = true;
+                    break;
+                }
+            }
+
+            if (this.operator === TransactionExplorerConditionOperatorType.HasAny && hasAny) {
+                return true;
+            } else if (this.operator === TransactionExplorerConditionOperatorType.NotHasAny && !hasAny) {
+                return true;
+            }
+        } else if (this.operator === TransactionExplorerConditionOperatorType.HasAll || this.operator === TransactionExplorerConditionOperatorType.NotHasAll) {
+            let hasAll = true;
+
+            for (const groupId of this.value) {
+                if (!transactionTagGroupIds[groupId]) {
+                    hasAll = false;
+                    break;
+                }
+            }
+
+            if (this.operator === TransactionExplorerConditionOperatorType.HasAll && hasAll) {
+                return true;
+            } else if (this.operator === TransactionExplorerConditionOperatorType.NotHasAll && !hasAll) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public toExpression(allCategoriesMap: Record<string, TransactionCategory>, allAccountsMap: Record<string, Account>, allTagsMap: Record<string, TransactionTag>, allTagGroupsMap?: Record<string, TransactionTagGroup>): string {
+        if (this.operator === TransactionExplorerConditionOperatorType.IsEmpty) {
+            return `tag groups IS EMPTY`;
+        } else if (this.operator === TransactionExplorerConditionOperatorType.IsNotEmpty) {
+            return `tag groups IS NOT EMPTY`;
+        }
+
+        const textualTagGroups = this.value.map(id => {
+            const tagGroup = allTagGroupsMap?.[id];
+
+            if (tagGroup) {
+                return `'${tagGroup.name}'`;
+            } else {
+                return `'${id}'`;
+            }
+        }).join(', ');
+
+        if (this.operator === TransactionExplorerConditionOperatorType.HasAny) {
+            return `tag groups HAS ANY (${textualTagGroups})`;
+        } else if (this.operator === TransactionExplorerConditionOperatorType.HasAll) {
+            return `tag groups HAS ALL (${textualTagGroups})`;
+        } else if (this.operator === TransactionExplorerConditionOperatorType.NotHasAny) {
+            return `tag groups NOT HAS ANY (${textualTagGroups})`;
+        } else if (this.operator === TransactionExplorerConditionOperatorType.NotHasAll) {
+            return `tag groups NOT HAS ALL (${textualTagGroups})`;
         } else {
             return '';
         }

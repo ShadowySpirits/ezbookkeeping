@@ -60,6 +60,8 @@
 
             <f7-list-item :title="tt('Default Transaction Category Filter')" link="/settings/filter/category?type=statisticsDefault"></f7-list-item>
 
+            <f7-list-item :title="tt('Default Transaction Tag Filter')" link="/settings/filter/tag?type=statisticsDefault"></f7-list-item>
+
             <f7-list-item
                 class="item-truncate-after-text"
                 link="#"

@@ -166,7 +166,59 @@ export const useExplorersStore = defineStore('explorers', () => {
         };
     }
 
-    function getDataCategoryInfo(timezoneUsedForDateRange: number, dimension: TransactionExplorerDataDimension, queryName: string, queryIndex: number, transaction: TransactionInsightDataItem): CategoriedInfo {
+    function getDataCategoryInfo(timezoneUsedForDateRange: number, dimension: TransactionExplorerDataDimension, queryName: string, queryIndex: number, transaction: TransactionInsightDataItem): CategoriedInfo[] {
+        if (dimension === TransactionExplorerDataDimension.Tag) {
+            if (!transaction.tags || transaction.tags.length === 0) {
+                return [{
+                    categoryName: 'No Tag',
+                    categoryNameNeedI18n: true,
+                    categoryId: 'none',
+                    categoryIdType: TransactionExplorerDimensionType.Other,
+                    categoryDisplayOrders: [Number.MAX_SAFE_INTEGER]
+                }];
+            }
+
+            return transaction.tags.map(tag => ({
+                categoryName: tag.name,
+                categoryId: tag.id,
+                categoryIdType: TransactionExplorerDimensionType.Other,
+                categoryDisplayOrders: [tag.displayOrder]
+            }));
+        } else if (dimension === TransactionExplorerDataDimension.TagGroup) {
+            if (!transaction.tags || transaction.tags.length === 0) {
+                return [{
+                    categoryName: 'No Tag Group',
+                    categoryNameNeedI18n: true,
+                    categoryId: 'none',
+                    categoryIdType: TransactionExplorerDimensionType.Other,
+                    categoryDisplayOrders: [Number.MAX_SAFE_INTEGER]
+                }];
+            }
+
+            const groupInfoMap: Record<string, CategoriedInfo> = {};
+
+            for (const tag of transaction.tags) {
+                const groupId = tag.groupId || '0';
+
+                if (!groupInfoMap[groupId]) {
+                    const group = transactionTagsStore.allTransactionTagGroupsMap[groupId];
+                    groupInfoMap[groupId] = {
+                        categoryName: group?.name || 'Default Group',
+                        categoryNameNeedI18n: !group,
+                        categoryId: groupId,
+                        categoryIdType: TransactionExplorerDimensionType.Other,
+                        categoryDisplayOrders: [group?.displayOrder ?? 0]
+                    };
+                }
+            }
+
+            return Object.values(groupInfoMap);
+        }
+
+        return [getDataCategoryInfoSingle(timezoneUsedForDateRange, dimension, queryName, queryIndex, transaction)];
+    }
+
+    function getDataCategoryInfoSingle(timezoneUsedForDateRange: number, dimension: TransactionExplorerDataDimension, queryName: string, queryIndex: number, transaction: TransactionInsightDataItem): CategoriedInfo {
         let transactionTimeUtfOffset: number | undefined = undefined;
 
         if (timezoneUsedForDateRange === TimezoneTypeForStatistics.TransactionTimezone.type) {
@@ -432,39 +484,45 @@ export const useExplorersStore = defineStore('explorers', () => {
     }
 
     function addTransactionToCategoriedDataMap(timezoneUsedForDateRange: number, categoriedDataMap: Record<string, CategoriedTransactions>, categoryDimension: TransactionExplorerDataDimension, seriesDemension: TransactionExplorerDataDimension, queryName: string, queryIndex: number, transaction: TransactionInsightDataItem): void {
-        const categoriedInfo = getDataCategoryInfo(timezoneUsedForDateRange, categoryDimension, queryName, queryIndex, transaction);
-        let categoriedData = categoriedDataMap[categoriedInfo.categoryId];
+        const categoriedInfos = getDataCategoryInfo(timezoneUsedForDateRange, categoryDimension, queryName, queryIndex, transaction);
 
-        if (!categoriedData) {
-            categoriedData = {
-                categoryName: categoriedInfo.categoryName,
-                categoryNameNeedI18n: categoriedInfo.categoryNameNeedI18n,
-                categoryNameI18nParameters: categoriedInfo.categoryNameI18nParameters,
-                categoryId: categoriedInfo.categoryId,
-                categoryIdType: categoriedInfo.categoryIdType,
-                categoryDisplayOrders: categoriedInfo.categoryDisplayOrders,
-                trasactions: {}
-            };
-            categoriedDataMap[categoriedInfo.categoryId] = categoriedData;
+        for (const categoriedInfo of categoriedInfos) {
+            let categoriedData = categoriedDataMap[categoriedInfo.categoryId];
+
+            if (!categoriedData) {
+                categoriedData = {
+                    categoryName: categoriedInfo.categoryName,
+                    categoryNameNeedI18n: categoriedInfo.categoryNameNeedI18n,
+                    categoryNameI18nParameters: categoriedInfo.categoryNameI18nParameters,
+                    categoryId: categoriedInfo.categoryId,
+                    categoryIdType: categoriedInfo.categoryIdType,
+                    categoryDisplayOrders: categoriedInfo.categoryDisplayOrders,
+                    trasactions: {}
+                };
+                categoriedDataMap[categoriedInfo.categoryId] = categoriedData;
+            }
+
+            const seriesInfos = getDataCategoryInfo(timezoneUsedForDateRange, seriesDemension, queryName, queryIndex, transaction);
+
+            for (const seriesInfo of seriesInfos) {
+                let seriesData = categoriedData.trasactions[seriesInfo.categoryId];
+
+                if (!seriesData) {
+                    seriesData = {
+                        seriesName: seriesInfo.categoryName,
+                        seriesNameNeedI18n: seriesInfo.categoryNameNeedI18n,
+                        seriesNameI18nParameters: seriesInfo.categoryNameI18nParameters,
+                        seriesId: seriesInfo.categoryId,
+                        seriesIdType: seriesInfo.categoryIdType,
+                        seriesDisplayOrders: seriesInfo.categoryDisplayOrders,
+                        trasactions: []
+                    };
+                    categoriedData.trasactions[seriesInfo.categoryId] = seriesData;
+                }
+
+                seriesData.trasactions.push(transaction);
+            }
         }
-
-        const seriesInfo = getDataCategoryInfo(timezoneUsedForDateRange, seriesDemension, queryName, queryIndex, transaction);
-        let seriesData = categoriedData.trasactions[seriesInfo.categoryId];
-
-        if (!seriesData) {
-            seriesData = {
-                seriesName: seriesInfo.categoryName,
-                seriesNameNeedI18n: seriesInfo.categoryNameNeedI18n,
-                seriesNameI18nParameters: seriesInfo.categoryNameI18nParameters,
-                seriesId: seriesInfo.categoryId,
-                seriesIdType: seriesInfo.categoryIdType,
-                seriesDisplayOrders: seriesInfo.categoryDisplayOrders,
-                trasactions: []
-            };
-            categoriedData.trasactions[seriesInfo.categoryId] = seriesData;
-        }
-
-        seriesData.trasactions.push(transaction);
     }
 
     function loadInsightsExplorerList(explorers: InsightsExplorerBasicInfo[]): void {

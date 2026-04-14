@@ -155,12 +155,17 @@
         <v-col cols="12">
             <category-filter-settings-card type="statisticsDefault" :auto-save="true" />
         </v-col>
+
+        <v-col cols="12">
+            <transaction-tag-filter-settings-card type="statisticsDefault" :auto-save="true" />
+        </v-col>
     </v-row>
 </template>
 
 <script setup lang="ts">
 import AccountFilterSettingsCard from '@/views/desktop/common/cards/AccountFilterSettingsCard.vue';
 import CategoryFilterSettingsCard from '@/views/desktop/common/cards/CategoryFilterSettingsCard.vue';
+import TransactionTagFilterSettingsCard from '@/views/desktop/common/cards/TransactionTagFilterSettingsCard.vue';
 
 import { useI18n } from '@/locales/helpers.ts';
 import { useStatisticsSettingPageBase } from '@/views/base/statistics/StatisticsSettingPageBase.ts';

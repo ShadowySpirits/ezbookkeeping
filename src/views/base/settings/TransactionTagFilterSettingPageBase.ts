@@ -5,6 +5,7 @@ import { useI18n } from '@/locales/helpers.ts';
 import { useTransactionTagsStore } from '@/stores/transactionTag.ts';
 import { useTransactionsStore } from '@/stores/transaction.ts';
 import { useStatisticsStore } from '@/stores/statistics.ts';
+import { useSettingsStore } from '@/stores/setting.ts';
 
 import { entries, keys, values } from '@/core/base.ts';
 import { TransactionTagFilterType } from '@/core/transaction.ts';
@@ -46,22 +47,35 @@ export function useTransactionTagFilterSettingPageBase(type?: string) {
     const transactionTagsStore = useTransactionTagsStore();
     const transactionsStore = useTransactionsStore();
     const statisticsStore = useStatisticsStore();
+    const settingsStore = useSettingsStore();
 
     const loading = ref<boolean>(true);
     const showHidden = ref<boolean>(false);
     const filterContent = ref<string>('');
 
+    // For statisticsDefault: simple checkbox model (tag ID → filtered out)
+    const filterTagIds = ref<Record<string, boolean>>({});
+
+    // For statisticsCurrent / transactionListCurrent: 3-state model
     const tagFilterStateMap = ref<Record<string, TransactionTagFilterState>>({});
     const groupTagFilterTypesMap = ref<Record<string, TransactionGroupTagFilterTypes>>(getEmptyGroupTagFilterTypesMap(transactionTagsStore.allTransactionTagsByGroupMap));
 
     const lowerCaseFilterContent = computed<string>(() => filterContent.value.toLowerCase());
 
     const title = computed<string>(() => {
-        return 'Filter Transaction Tags';
+        if (type === 'statisticsDefault') {
+            return 'Default Transaction Tag Filter';
+        } else {
+            return 'Filter Transaction Tags';
+        }
     });
 
     const applyText = computed<string>(() => {
-        return 'Apply';
+        if (type === 'statisticsDefault') {
+            return 'Save';
+        } else {
+            return 'Apply';
+        }
     });
 
     const groupTagFilterStateCountMap = computed<Record<string, Record<TransactionTagFilterState, number>>>(() => {
@@ -145,6 +159,19 @@ export function useTransactionTagFilterSettingPageBase(type?: string) {
     });
 
     function loadFilterTagIds(): boolean {
+        if (type === 'statisticsDefault') {
+            // Simple checkbox model: load Record<string, boolean>
+            const allTagIds: Record<string, boolean> = {};
+
+            for (const tag of values(transactionTagsStore.allTransactionTagsMap)) {
+                allTagIds[tag.id] = false;
+            }
+
+            filterTagIds.value = Object.assign(allTagIds, settingsStore.appSettings.statistics.defaultTagFilter);
+            return true;
+        }
+
+        // 3-state model for statisticsCurrent / transactionListCurrent
         let tagFilters: TransactionTagFilter[] = [];
 
         if (type === 'statisticsCurrent') {
@@ -200,6 +227,21 @@ export function useTransactionTagFilterSettingPageBase(type?: string) {
     }
 
     function saveFilterTagIds(): boolean {
+        if (type === 'statisticsDefault') {
+            // Simple checkbox model: save Record<string, boolean>
+            const filteredTagIds: Record<string, boolean> = {};
+
+            for (const tagId of keys(filterTagIds.value)) {
+                if (filterTagIds.value[tagId]) {
+                    filteredTagIds[tagId] = true;
+                }
+            }
+
+            settingsStore.setStatisticsDefaultTagFilter(filteredTagIds);
+            return true;
+        }
+
+        // 3-state model for statisticsCurrent / transactionListCurrent
         const tagFilters: TransactionTagFilter[] = [];
         let changed = true;
 
@@ -258,6 +300,7 @@ export function useTransactionTagFilterSettingPageBase(type?: string) {
         loading,
         showHidden,
         filterContent,
+        filterTagIds,
         tagFilterStateMap,
         groupTagFilterTypesMap,
         // computed states

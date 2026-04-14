@@ -1,4 +1,21 @@
 # ezBookkeeping
+
+## What is Changed in This Fork
+
+- **Tag Group integration for Statistics & Insights**:
+    - New "Expense By Tag Group" and "Income By Tag Group" chart types in the Statistics page, with client-side aggregation of transactions by tag group
+    - "Tag" and "Tag Group" data dimensions in the Insights Explorer for chart axis/category and series grouping (multi-tag transactions appear in all relevant slices)
+    - Tag Group filter dropdown in the Explorer chart tab — when axis is "Tag", select a specific tag group to scope which tags appear (persisted with the explorer)
+    - "Tag Group" condition field in Explorer query builder — filter transactions by tag group membership (HasAny/HasAll/NotHasAny/NotHasAll operators)
+- **Default Transaction Tag Filter in Statistics Settings**: Checkbox-based tag filter (grouped by tag group) in Statistics Settings, matching the existing account/category filter pattern. Persisted via cloud sync.
+- **Full-text search for transaction comments in PostgreSQL**: Added support for full-text search on transaction comments when using PostgreSQL database, enabling faster and more accurate search results
+- **Transaction list date filtering improvements**: Updated the dateType parameter in transaction list API to improve filtering capabilities
+- **Direct transaction dialog access**: The transaction dialog now displays automatically when URL parameters include a transaction ID
+- **MCP response error handling**: Changed HTTP status code for failed MCP (Model Context Protocol) responses
+- **Minor UI and code optimizations**: Color adjustments, comment length fixes, and other minor optimizations
+
+---
+
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/mayswind/ezbookkeeping/blob/master/LICENSE)
 [![Go Report](https://goreportcard.com/badge/github.com/mayswind/ezbookkeeping)](https://goreportcard.com/report/github.com/mayswind/ezbookkeeping)
 [![Latest Release](https://img.shields.io/github/release/mayswind/ezbookkeeping.svg?style=flat)](https://github.com/mayswind/ezbookkeeping/releases)

@@ -38,6 +38,7 @@ export enum TransactionExplorerConditionFieldType {
     DestinationAmount = 'destinationAmount',
     GeoLocation = 'geoLocation',
     TransactionTag = 'transactionTag',
+    TransactionTagGroup = 'transactionTagGroup',
     Pictures = 'pictures',
     Description = 'description'
 }
@@ -59,6 +60,7 @@ export class TransactionExplorerConditionField implements NameValue {
     public static readonly DestinationAmount = new TransactionExplorerConditionField('Transfer In Amount', TransactionExplorerConditionFieldType.DestinationAmount);
     public static readonly GeoLocation = new TransactionExplorerConditionField('Geographic Location', TransactionExplorerConditionFieldType.GeoLocation);
     public static readonly TransactionTag = new TransactionExplorerConditionField('Tags', TransactionExplorerConditionFieldType.TransactionTag);
+    public static readonly TransactionTagGroup = new TransactionExplorerConditionField('Tag Group', TransactionExplorerConditionFieldType.TransactionTagGroup);
     public static readonly Pictures = new TransactionExplorerConditionField('Pictures', TransactionExplorerConditionFieldType.Pictures);
     public static readonly Description = new TransactionExplorerConditionField('Description', TransactionExplorerConditionFieldType.Description);
 
@@ -243,7 +245,9 @@ export enum TransactionExplorerDataDimensionType {
     SourceAmount = 'sourceAmount',
     DestinationAmount = 'destinationAmount',
     PrimaryCategory = 'primaryCategory',
-    SecondaryCategory = 'secondaryCategory'
+    SecondaryCategory = 'secondaryCategory',
+    Tag = 'tag',
+    TagGroup = 'tagGroup'
 }
 
 export class TransactionExplorerDataDimension implements NameValue {
@@ -275,6 +279,8 @@ export class TransactionExplorerDataDimension implements NameValue {
     public static readonly SecondaryCategory = new TransactionExplorerDataDimension('Secondary Category', TransactionExplorerDataDimensionType.SecondaryCategory);
     public static readonly SourceAmount = new TransactionExplorerDataDimension('Amount', TransactionExplorerDataDimensionType.SourceAmount);
     public static readonly DestinationAmount = new TransactionExplorerDataDimension('Transfer In Amount', TransactionExplorerDataDimensionType.DestinationAmount);
+    public static readonly Tag = new TransactionExplorerDataDimension('Tag', TransactionExplorerDataDimensionType.Tag);
+    public static readonly TagGroup = new TransactionExplorerDataDimension('Tag Group', TransactionExplorerDataDimensionType.TagGroup);
 
     public static readonly CategoryDimensionDefault = TransactionExplorerDataDimension.Query;
     public static readonly SeriesDimensionDefault = TransactionExplorerDataDimension.None;
